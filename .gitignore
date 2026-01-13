@@ -1,0 +1,11 @@
+/bin
+/results
+/baseline_test_results
+aurora.ipynb
+baseline_mining_mask.ipynb
+baseline_mining_mask.ipynb
+mine_level_temp_aggr.ipynb
+no_go_zone_alert.ipynb
+spatial_object_form.ipynb
+temp_anomaly_scoring.ipynb
+temp_state_inference.ipynb

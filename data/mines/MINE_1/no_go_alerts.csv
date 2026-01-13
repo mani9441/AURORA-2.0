@@ -1,0 +1,3 @@
+date,mine_id,zone_id,violation_area_ha,event_type,confidence
+2023-05-08,mine_001,NGZ_001,0.014479644110922806,first_violation,0.0
+2023-06-27,mine_001,NGZ_001,0.014479644110922806,stabilized,1.0
