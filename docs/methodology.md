@@ -2,69 +2,56 @@
 
 ## 1. Feature Representation
 
-For each pixel p at time t, a feature vector is constructed:
+For each pixel  at time , a feature vector is constructed to capture both instantaneous state and temporal change:
 
-x(p,t) = [
-  NDVI,
-  NBR,
-  BSI,
-  SWIR1,
-  SWIR2,
-  ΔNDVI,
-  ΔNBR,
-  NDVI_slope,
-  NDVI_variance
-]
+* **NDVI/NBR:** Capture vegetation health and burn/disturbance ratios.
+* **BSI (Bare Soil Index):** Specifically identifies soil exposure in mining contexts.
+* **Temporal Features:** Slopes and variances filter out natural phenological cycles (seasons) from abrupt land-clearing events.
 
-These features jointly capture vegetation loss, soil exposure, and temporal dynamics.
 
----
 
 ## 2. Baseline Learning
 
-A mine-specific baseline model is trained using historical data assumed to represent normal conditions.
+A mine-specific model is trained on a "clean" historical period.
 
-Two baseline products are generated:
-- Baseline anomaly model (statistical / reconstruction-based)
-- Baseline mining mask (pre-existing excavation)
+* **Statistical Baseline:** Establishes the expected range of spectral values for "normal" land.
+* **Baseline Mask:** Identifies pre-existing mining footprints to ensure the system only flags *new* disturbances.
 
----
 
 ## 3. Temporal Anomaly Scoring
 
-For monitoring data, anomaly scores are computed per pixel and time step as deviation from the baseline model.
+The model computes a deviation score . A high score indicates that the pixel’s current spectral signature significantly contradicts its historical baseline.
 
-This step detects **change**, not excavation.
+> **Note:** This step identifies *spectral change*; it does not yet classify the change as excavation.
 
----
 
 ## 4. Temporal State Inference
 
-Anomaly scores are converted into land-state sequences:
+To filter transient noise (shadows, sensor errors), anomaly scores are processed through a state machine:
 
-S(p,t) ∈ {Normal, Transition, Excavated}
 
-Rules enforced:
-- Vegetation decrease + anomaly increase
-- Persistence over ≥ k observations
+**Logic Constraints:**
 
-This removes seasonal noise and transient artifacts.
+* **State Locking:** A pixel only transitions to "Excavated" if the anomaly persists for  consecutive cloud-free observations.
+* **Directionality:** Uses spectral constraints (e.g., NDVI must decrease while BSI increases) to ensure the change is consistent with land clearing.
 
----
+
 
 ## 5. Spatial Object Formation
 
-Binary excavation masks are converted into connected components.
-Each object is characterized by:
-- Geometry
-- Area (ha)
-- Start date
-- Confidence (temporal persistence)
+Pixel-level masks are grouped into vector polygons using 8-connectivity labeling.
 
----
+* **MMU Filtering:** Objects smaller than the Minimum Mapping Unit (0.2 ha) are discarded as salt-and-pepper noise.
+* **Temporal Tracking:** Each object is assigned a `start_date` based on its first appearance and a `confidence` score that grows as the object persists over time.
+
+
 
 ## 6. Aggregation & Violation Detection
 
-- Excavation objects are aggregated over time to compute mine-level metrics.
-- Spatial intersection with no-go zones produces violation time series.
-- Event semantics (first violation, expansion, stabilization) generate alert logs.
+* **Mine-Level Metrics:** Cumulative excavated area is calculated by dissolving all objects within the mine boundary.
+* **Violation Logic:** Objects are spatially intersected with **No-Go Zones**.
+* **Event Semantics:**
+* **First Violation:** Initial intersection with a protected zone.
+* **Expansion:** Increase in violation area beyond legal mining area.
+* **Stabilization:** No significant growth detected over  steps.
+
