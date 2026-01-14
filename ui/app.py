@@ -102,6 +102,8 @@ monitoring_aoi = monitoring_aoi.to_crs(epsg=4326)
 nogos = nogos.to_crs(epsg=4326)
 
 
+
+
 # Excavation Map
 st.header("Excavation Map")
 
@@ -112,10 +114,22 @@ minx, miny, maxx, maxy = bounds
 m = folium.Map(tiles="CartoDB positron")
 m.fit_bounds([[miny, minx], [maxy, maxx]])
 
+# ... (after creating the Folium Map 'm') ...
 
+# 1. Baseline AOI Layer (The "Before" state)
+folium.GeoJson(
+    baseline_aoi,
+    name="Baseline Footprint",
+    style_function=lambda x: {
+        "color": "green",
+        "weight": 2,
+        "dashArray": "5, 5",
+        "fillOpacity": 0.1
+    },
+    tooltip="Historical Baseline Area"
+).add_to(m)
 
-
-# Monitoring AOI (legal boundary equivalent)
+# 2. Monitoring AOI Layer (The "Current" legal boundary)
 folium.GeoJson(
     monitoring_aoi,
     name="Monitoring AOI",
@@ -125,6 +139,7 @@ folium.GeoJson(
         "fillOpacity": 0
     }
 ).add_to(m)
+
 
 # No-go zones
 folium.GeoJson(
@@ -163,6 +178,40 @@ folium.LayerControl().add_to(m)
 
 st_folium(m, width=900, height=520)
 
+# comparison table
+
+st.header("Baseline Comparison")
+col1, col2 = st.columns(2)
+
+# Calculate areas (Assuming your CRS is metric or you have area columns)
+# If your GDF has an 'area_ha' column, use it; otherwise, this is for display
+baseline_area = baseline_aoi.area.sum() # Note: Accurate only if CRS is in meters
+monitoring_area = monitoring_aoi.area.sum()
+
+with col1:
+    st.subheader("Baseline State")
+    st.write("Representing the stable mine footprint before monitoring.")
+    
+    # Check if column exists and has data
+    if "area_ha" in baseline_aoi.columns and not baseline_aoi.empty:
+        val = f"{baseline_aoi['area_ha'].iloc[0]:.2f} ha"
+    else:
+        val = "N/A"
+        
+    st.metric("Baseline Area", val)
+
+with col2:
+    st.subheader("Current Monitoring")
+    st.write("Representing the active zone under surveillance.")
+    
+    if "area_ha" in monitoring_aoi.columns and not monitoring_aoi.empty:
+        val = f"{monitoring_aoi['area_ha'].iloc[0]:.2f} ha"
+    else:
+        val = "N/A"
+        
+    st.metric("Monitoring Area", val)
+
+    
 
 # Mine level activity
 st.header("Mine-Level Excavation Activity")
@@ -217,3 +266,13 @@ st.download_button(
     file_name=f"{mine_id}_no_go_alerts.csv",
     mime="text/csv"
 )
+
+# 3. Add a legend explanation in the sidebar or main page
+st.sidebar.markdown("""
+---
+**Map Legend:**
+- 🟢 **Green Dashed**: Baseline Footprint
+- ⚪ **White Solid**: Monitoring Boundary
+- 🟠 **Orange Fill**: No-Go Zones
+- 🔴 **Red Fill**: New Excavations
+""")
